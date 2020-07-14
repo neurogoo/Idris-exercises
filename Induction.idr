@@ -125,3 +125,25 @@ eval_expr_tail e = eval_expr_tail' e 0
 eval_expr_tail_correct : eval_expr_tail e = eval_expr e
 eval_expr_tail_correct {e} =
   rewrite sym(plusZeroRightNeutral (eval_expr e)) in eval_expr_tail_correct' e 0
+
+--------------------Continuation-passing style evaluator-------------------------
+
+eval_expr_cont' : (e : Expr) -> (k : Nat -> a) -> a
+eval_expr_cont' (Const n) k = k n
+eval_expr_cont' (Plus e1 e2) k =
+  eval_expr_cont' e2 (\n2 => eval_expr_cont' e1 (\n1 => k (n1 + n2)))
+
+eval_expr_cont : (e : Expr) -> Nat
+eval_expr_cont e = eval_expr_cont' e (\n => n)
+
+eval_expr_cont_correct' :
+  (e : Expr) ->
+  (k : Nat -> a) ->
+  eval_expr_cont' e k = k (eval_expr e)
+eval_expr_cont_correct' (Const j) k = Refl
+eval_expr_cont_correct' (Plus x y) k =
+  rewrite eval_expr_cont_correct' y (\n2 => eval_expr_cont' x (\n1 => k (plus n1 n2))) in
+  rewrite eval_expr_cont_correct' x (\n1 => k (plus n1 (eval_expr y))) in Refl
+
+eval_expr_cont_correct : eval_expr_cont e = eval_expr e
+eval_expr_cont_correct {e} = eval_expr_cont_correct' e (\n => n)
