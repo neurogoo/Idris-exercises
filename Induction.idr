@@ -15,29 +15,14 @@ sum_tail' (x :: xs) acc = sum_tail' xs (x + acc)
 sum_tail : List Nat -> Nat
 sum_tail l = sum_tail' l 0
 
-canTakeBaseValueOut : (n : Nat) -> (l : List Nat) -> n + sum_tail' l 0 = sum_tail' l n
-canTakeBaseValueOut n [] = rewrite plusZeroRightNeutral n in Refl
-canTakeBaseValueOut n (x :: xs) =
-  rewrite plusZeroRightNeutral x in
-  rewrite sym(canTakeBaseValueOut x xs) in
-  rewrite sym(canTakeBaseValueOut (x + n) xs) in
-  rewrite plusAssociative n x (sum_tail' xs 0) in
-  rewrite plusCommutative n x in Refl
-
-addingToSumSameAsAddingToList : sum_tail' (x :: xs) 0 = x + sum_tail' xs 0
-addingToSumSameAsAddingToList {x} {xs = []} = Refl
-addingToSumSameAsAddingToList {x} {xs = (y :: ys)} =
-  rewrite plusZeroRightNeutral x in
-  rewrite plusZeroRightNeutral y in
-  rewrite plusCommutative y x in
-  rewrite sym(canTakeBaseValueOut y ys) in
-  rewrite sym(canTakeBaseValueOut (x + y) ys) in
-  rewrite plusAssociative x y (sum_tail' ys 0) in Refl
+sum_tail_correct' : (n : Nat) -> (l : List Nat) -> sum_tail' l n = n + sum' l
+sum_tail_correct' n [] = rewrite plusZeroRightNeutral n in Refl
+sum_tail_correct' n (x :: xs) =
+    rewrite plusCommutative x n in
+    rewrite plusAssociative n x (sum' xs) in sum_tail_correct' (n + x) xs
 
 sum_tail_correct : sum_tail l = sum' l
-sum_tail_correct {l = []} = Refl
-sum_tail_correct {l = (x :: xs)} =
-  rewrite addingToSumSameAsAddingToList {x} {xs} in cong(sum_tail_correct)
+sum_tail_correct {l} = sum_tail_correct' 0 l
 
 ------------Continuation-passing style sum-----------------------
 
@@ -56,3 +41,55 @@ sum_cont_correct' k (x :: xs) = sum_cont_correct' (\acc => k (plus x acc)) xs
 
 sum_cont_correct : sum_cont l = sum' l
 sum_cont_correct {l} = sum_cont_correct' (\x => x) l
+
+------------Reverse-------------------------------------
+
+rev : (l : List a) -> List a
+rev [] = []
+rev (x :: xs) = rev xs ++ [x]
+
+rev_tail' : (l : List a) -> (acc : List a) -> List a
+rev_tail' [] acc = acc
+rev_tail' (x :: xs) acc = rev_tail' xs (x :: acc)
+
+rev_tail_correct' : (l : List a) -> (acc : List a) -> rev_tail' l acc = rev l ++ acc
+rev_tail_correct' [] acc = Refl
+rev_tail_correct' (x :: xs) acc =
+  rewrite rev_tail_correct' xs (x :: acc) in
+  rewrite appendAssociative (rev xs) [x] acc in Refl
+
+rev_tail : (l : List a) -> List a
+rev_tail l = rev_tail' l []
+
+rev_tail_correct : (l : List l) -> rev_tail l = rev l
+rev_tail_correct l =
+  rewrite sym(appendNilRightNeutral (rev l)) in
+  rewrite rev_tail_correct' l [] in Refl
+
+--------------Map-----------------------------------
+
+map' : (f : a -> b) -> (l : List a) -> List b
+map' f [] = []
+map' f (x :: xs) = f x :: map' f xs
+
+map_tail' : (f : a -> b) -> (l : List a) -> (acc : List b) -> List b
+map_tail' f [] acc = rev_tail acc
+map_tail' f (x :: xs) acc = map_tail' f xs (f x :: acc)
+
+map_tail : (f : a -> b) -> (l : List a) -> List b
+map_tail f l = map_tail' f l []
+
+map_tail_correct' :
+  (f : a -> b) ->
+  (l : List a) ->
+  (acc : List b) ->
+  map_tail' f l acc = rev_tail acc ++ map' f l
+map_tail_correct' f [] acc = rewrite appendNilRightNeutral (rev_tail' acc []) in Refl
+map_tail_correct' f (x :: xs) acc =
+  rewrite map_tail_correct' f xs (f x :: acc) in
+  rewrite rev_tail_correct (f x :: acc) in
+  rewrite rev_tail_correct acc in
+  rewrite appendAssociative (rev acc) [f x] (map' f xs) in Refl
+
+map_tail_correct : map_tail f l = map' f l
+map_tail_correct {f} {l} = map_tail_correct' f l []
