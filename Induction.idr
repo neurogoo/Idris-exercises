@@ -93,3 +93,35 @@ map_tail_correct' f (x :: xs) acc =
 
 map_tail_correct : map_tail f l = map' f l
 map_tail_correct {f} {l} = map_tail_correct' f l []
+
+----------Expression languages-----------------------------
+
+data Expr : Type where
+  Const : Nat -> Expr
+  Plus : Expr -> Expr -> Expr
+
+eval_expr : (e : Expr) -> Nat
+eval_expr (Const n) = n
+eval_expr (Plus e1 e2) = eval_expr e1 + eval_expr e2
+
+eval_expr_tail' : (e : Expr) -> (acc : Nat) -> Nat
+eval_expr_tail' (Const n) acc = n + acc
+eval_expr_tail' (Plus e1 e2) acc = eval_expr_tail' e2 (eval_expr_tail' e1 acc)
+
+eval_expr_tail_correct' :
+  (e : Expr) ->
+  (acc : Nat) ->
+  eval_expr_tail' e acc = eval_expr e + acc
+eval_expr_tail_correct' (Const k) acc = Refl
+eval_expr_tail_correct' (Plus x y) acc =
+  rewrite eval_expr_tail_correct' y (eval_expr_tail' x acc) in
+  rewrite eval_expr_tail_correct' x acc in
+  rewrite plusAssociative (eval_expr y) (eval_expr x) acc in
+  rewrite plusCommutative (eval_expr y) (eval_expr x) in Refl
+
+eval_expr_tail : (e : Expr) -> Nat
+eval_expr_tail e = eval_expr_tail' e 0
+
+eval_expr_tail_correct : eval_expr_tail e = eval_expr e
+eval_expr_tail_correct {e} =
+  rewrite sym(plusZeroRightNeutral (eval_expr e)) in eval_expr_tail_correct' e 0
